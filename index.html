@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>متجري</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#11161b;color:#fff;font-family:Arial,Tahoma,sans-serif}
+header{background:#171d23;border-bottom:1px solid #303841;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+.logo{font-size:24px;font-weight:900;color:#27a8ff}.actions{display:flex;gap:8px}button{border:0;border-radius:12px;padding:11px 16px;font-weight:bold;cursor:pointer}
+.primary{background:#168cff;color:#fff}.dark{background:#252d35;color:#fff}
+.hero{margin:18px;border-radius:24px;padding:35px 20px;text-align:center;background:linear-gradient(120deg,#087cff,#20bda7)}
+.hero h1{font-size:38px;margin:5px}.hero p{font-size:18px}
+.container{max-width:1100px;margin:auto;padding:0 18px 40px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}.card{background:#1b2229;border:1px solid #303841;border-radius:20px;overflow:hidden}.pic{height:190px;background:#252d35;display:grid;place-items:center;color:#aeb8c2;font-size:22px}.pic img{width:100%;height:100%;object-fit:cover}.body{padding:15px}.body h3{margin:0 0 8px}.price{color:#2fb8ff;font-size:20px;font-weight:bold;margin:8px 0}.empty{text-align:center;padding:45px;color:#9da8b2}
+dialog{border:0;border-radius:20px;background:#1b2229;color:#fff;width:min(94%,600px);padding:0}dialog::backdrop{background:#000b}.modal{padding:20px}.modal h2{margin-top:0}label{display:block;margin:12px 0 6px}input,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid #3a444e;background:#11161b;color:#fff}textarea{min-height:90px;resize:vertical}.row{display:flex;gap:10px;margin-top:15px}.row>*{flex:1}.product-admin{display:flex;gap:10px;align-items:center;background:#252d35;padding:10px;border-radius:12px;margin:8px 0}.product-admin img{width:55px;height:55px;object-fit:cover;border-radius:9px}.small{padding:8px 10px}
+.note{font-size:13px;color:#aeb8c2;margin-top:8px}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.hero h1{font-size:30px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" id="headerName">متجري</div>
+  <div class="actions"><button class="dark" onclick="openCart()">🛒 السلة (<span id="cartCount">0</span>)</button><button class="primary" onclick="openAdmin()">⚙️ الإدارة</button></div>
+</header>
+
+<section class="hero"><h1 id="siteName">متجري</h1><p id="siteDesc">متجرك الإلكتروني</p></section>
+<div class="container"><div id="products" class="grid"></div></div>
+
+<dialog id="admin">
+<div class="modal">
+<h2>⚙️ إدارة المتجر</h2>
+<label>اسم الموقع</label><input id="nameInput" placeholder="مثال: BloxMarket">
+<label>وصف الموقع</label><input id="descInput" placeholder="متجر الألعاب والمنتجات"><label>رقم واتساب (مثال: 2010XXXXXXXX)</label><input id="phoneInput" placeholder="2010XXXXXXXX" inputmode="numeric">
+<h3>المنتجات — حتى 10 منتجات</h3>
+<div id="adminProducts"></div>
+<div class="row"><button class="primary" onclick="addProduct()">➕ إضافة منتج</button><button class="dark" onclick="saveSettings()">💾 حفظ</button></div>
+<p class="note">الصور والمنتجات تُحفظ على نفس المتصفح. هذه نسخة تجريبية محلية؛ لن يراها الزوار على أجهزة أخرى حتى نربطها بقاعدة بيانات واستضافة.</p>
+<button class="dark" onclick="admin.close()">إغلاق</button>
+</div>
+</dialog>
+
+<dialog id="editor">
+<div class="modal">
+<h2 id="editorTitle">إضافة منتج</h2>
+<label>اسم المنتج</label><input id="pName">
+<label>السعر</label><input id="pPrice" type="number" min="0">
+<label>الوصف</label><textarea id="pDesc"></textarea>
+<label>صورة المنتج</label><input id="pImage" type="file" accept="image/*">
+<div class="row"><button class="primary" onclick="saveProduct()">حفظ المنتج</button><button class="dark" onclick="editor.close()">إلغاء</button></div>
+</div>
+</dialog>
+
+<dialog id="cart">
+<div class="modal"><h2>🛒 سلة المشتريات</h2><div id="cartItems"></div><div class="row"><button class="primary" onclick="checkout()">إرسال الطلب</button><button class="dark" onclick="cart.close()">إغلاق</button></div></div>
+</dialog>
+
+<script>
+let data={name:'Mazen Store',desc:'برفانات ومنتجات مميزة',phone:'',products:[]},cart=[];
+async function load(){const r=await fetch('/api/store');data=await r.json();render()}
+function render(){document.title=data.name;siteName.textContent=data.name;headerName.textContent=data.name;siteDesc.textContent=data.desc;cartCount.textContent=cart.length;products.innerHTML='';if(!data.products.length){products.innerHTML='<div class="empty" style="grid-column:1/-1">لا توجد منتجات حالياً.</div>';return}data.products.forEach((p,i)=>{const c=document.createElement('article');c.className='card';c.innerHTML=`<div class="pic">${p.image?`<img src="${p.image}">`:'لا توجد صورة'}</div><div class="body"><h3>${esc(p.name)}</h3><div class="price">${Number(p.price).toLocaleString('ar-EG')} ج.م</div><p>${esc(p.desc||'')}</p><button class="primary" onclick="buyWhatsApp(${i})">💬 شراء والتواصل واتساب</button></div>`;products.appendChild(c)})}
+function buyWhatsApp(i){const p=data.products[i],phone=(data.phone||'').replace(/\D/g,'');if(!phone)return alert('رقم واتساب غير مضاف حالياً');window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(`مرحباً، أريد شراء المنتج:\nالاسم: ${p.name}\nالسعر: ${p.price} ج.م`),'_blank')}
+function openCart(){alert('السلة جاهزة للإضافة في النسخة القادمة.')}
+function openAdmin(){location.href='/admin'}
+function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+load();
+</script>
+</body>
+</html>

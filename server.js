@@ -1,0 +1,24 @@
+const express=require('express');
+const session=require('express-session');
+const crypto=require('crypto');
+const fs=require('fs');
+const path=require('path');
+const app=express();
+const PORT=process.env.PORT||3000;
+const PASSWORD=process.env.ADMIN_PASSWORD||'mazen';
+const SECRET=process.env.SESSION_SECRET||crypto.randomBytes(32).toString('hex');
+const DATA=path.join(__dirname,'store-data.json');
+if(!fs.existsSync(DATA))fs.writeFileSync(DATA,JSON.stringify({name:'Mazen Store',desc:'برفانات ومنتجات مميزة',phone:'',products:[]},null,2));
+const read=()=>JSON.parse(fs.readFileSync(DATA,'utf8'));
+const write=d=>fs.writeFileSync(DATA,JSON.stringify(d,null,2));
+app.use(express.json({limit:'10mb'}));
+app.use(session({secret:SECRET,resave:false,saveUninitialized:false,cookie:{httpOnly:true,sameSite:'lax',secure:false,maxAge:86400000}}));
+app.use(express.static(__dirname));
+function auth(req,res,next){if(req.session.owner)return next();res.status(401).json({error:'غير مصرح'});}
+app.get('/api/store',(req,res)=>res.json(read()));
+app.post('/api/login',(req,res)=>{if(String(req.body.password||'')!==PASSWORD)return res.status(401).json({error:'كلمة المرور غير صحيحة'});req.session.owner=true;res.json({ok:true});});
+app.post('/api/logout',auth,(req,res)=>req.session.destroy(()=>res.json({ok:true})));
+app.get('/api/me',(req,res)=>res.json({owner:!!req.session.owner}));
+app.put('/api/store',auth,(req,res)=>{const old=read();const d=req.body||{};const next={...old,name:String(d.name||old.name),desc:String(d.desc||old.desc),phone:String(d.phone||''),products:Array.isArray(d.products)?d.products.slice(0,100):old.products};write(next);res.json(next)});
+app.get('/admin',(req,res)=>res.sendFile(path.join(__dirname,'admin.html')));
+app.listen(PORT,()=>console.log('Mazen Store running on '+PORT));
